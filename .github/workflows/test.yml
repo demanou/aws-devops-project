@@ -1,0 +1,97 @@
+
+name: Deploy or Destroy CDK Stack using AWS CLI
+# - Push to main         --> deploy
+# - Actions tab --> Run workflow --> choose "deploy" or "destroy"
+#   (destroy only runs if you type DESTROY in the confirm box) 
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'CDK action to perform'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - destroy
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  CDK_STACK_NAME: AwsDevopsProjectStack
+  ACTION: ${{ github.event.inputs.action || 'deploy' }}
+
+jobs:
+  cdk-action:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check destroy confirmation
+        if: env.ACTION == 'destroy' && github.event.inputs.confirm != 'DESTROY'
+        run: |
+          echo "Destroy not confirmed: type DESTROY in the confirm box."
+          exit 1
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: CDK Bootstrap
+        run: npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ secrets.AWS_REGION }}
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: CDK deploy pipeline
+        if: env.ACTION == 'deploy'
+        run: |
+          echo "Running CDK synth..."
+          npx cdk synth
+
+          echo "Running CDK diff..."
+          npx cdk diff $STACK_NAME
+
+          echo "Deploying CDK stack..."
+          npx cdk deploy $STACK_NAME --require-approval never
+
+          echo "Showing stack outputs..."
+          aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --query "Stacks[0].{Status:StackStatus,Outputs:Outputs}" \
+            --output table
+
+      - name: CDK destroy pipeline
+        if: env.ACTION == 'destroy'
+        run: |
+          echo "Destroying CDK stack..."
+          npx cdk destroy $STACK_NAME --force
+
+          echo "Confirming deletion..."
+          if aws cloudformation describe-stacks --stack-name $STACK_NAME >/dev/null 2>&1; then
+            echo "Stack still exists:"
+            aws cloudformation describe-stacks --stack-name $STACK_NAME \
+              --query "Stacks[0].StackStatus" --output text
+            exit 1
+          fi
+
+          echo "Stack $STACK_NAME deleted."

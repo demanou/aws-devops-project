@@ -1,0 +1,76 @@
+name: Deploy Resources using AWS CloudFormation, destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'CloudFormation action to perform'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - destroy
+
+      StackName:
+        description: 'Enter your CloudFormation Stack Name'
+        required: true
+        default: 'project-stack'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TEMPLATE_FILE: deploy.yaml
+
+jobs:
+  cloudformation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Debug OIDC claims
+        run: |
+          TOKEN=$(curl -sH "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
+
+          echo "$TOKEN" \
+            | cut -d. -f2 \
+            | base64 -d 2>/dev/null \
+            | jq '{sub, aud, repository}'
+
+      - name: Configure AWS credentials from IAM Role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Validate CloudFormation template
+        run: |
+          aws cloudformation validate-template \
+            --template-body file://${{ env.TEMPLATE_FILE }}
+
+      - name: Deploy CloudFormation Stack
+        if: ${{ github.event.inputs.action == 'deploy' }}
+        run: |
+          aws cloudformation deploy \
+            --stack-name "${{ github.event.inputs.StackName }}" \
+            --template-file "${{ env.TEMPLATE_FILE }}" \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
+
+      - name: Delete CloudFormation Stack
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        run: |
+          aws cloudformation delete-stack \
+            --stack-name "${{ github.event.inputs.StackName }}"
+
+          echo "Waiting for stack deletion..."
+
+          aws cloudformation wait stack-delete-complete \
+            --stack-name "${{ env.STACK_NAME }}"
+
+          echo "CloudFormation stack deleted successfully."
