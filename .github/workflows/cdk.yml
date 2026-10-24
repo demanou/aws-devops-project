@@ -1,10 +1,14 @@
-name: Deploy Resources using AWS CloudFormation, destroy
+
+name: Deploy or Destroy CDK Stack using AWS CLI
+# - Push to main         --> deploy
+# - Actions tab --> Run workflow --> choose "deploy" or "destroy"
+#   (destroy only runs if you type DESTROY in the confirm box) 
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'CloudFormation action to perform'
+        description: 'CDK action to perform'
         required: true
         default: 'deploy'
         type: choice
@@ -12,65 +16,82 @@ on:
           - deploy
           - destroy
 
-      StackName:
-        description: 'Enter your CloudFormation Stack Name'
-        required: true
-        default: 'project-stack'
-        type: string
-
 permissions:
   id-token: write
   contents: read
 
 env:
-  TEMPLATE_FILE: deploy.yaml
+  CDK_STACK_NAME: AwsDevopsProjectStack
+  ACTION: ${{ github.event.inputs.action || 'deploy' }}
 
 jobs:
-  cloudformation:
+  cdk-action:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Check destroy confirmation
+        if: env.ACTION == 'destroy' && github.event.inputs.confirm != 'DESTROY'
+        run: |
+          echo "Destroy not confirmed: type DESTROY in the confirm box."
+          exit 1
+
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Debug OIDC claims
-        run: |
-          TOKEN=$(curl -sH "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
 
-          echo "$TOKEN" \
-            | cut -d. -f2 \
-            | base64 -d 2>/dev/null \
-            | jq '{sub, aud, repository}'
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Configure AWS credentials from IAM Role
+      - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Validate CloudFormation template
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: CDK Bootstrap
+        run: npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ secrets.AWS_REGION }}
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: CDK deploy pipeline
+        if: env.ACTION == 'deploy'
         run: |
-          aws cloudformation validate-template \
-            --template-body file://${{ env.TEMPLATE_FILE }}
+          echo "Running CDK synth..."
+          npx cdk synth
 
-      - name: Deploy CloudFormation Stack
-        if: ${{ github.event.inputs.action == 'deploy' }}
+          echo "Running CDK diff..."
+          npx cdk diff $STACK_NAME
+
+          echo "Deploying CDK stack..."
+          npx cdk deploy $STACK_NAME --require-approval never
+
+          echo "Showing stack outputs..."
+          aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --query "Stacks[0].{Status:StackStatus,Outputs:Outputs}" \
+            --output table
+
+      - name: CDK destroy pipeline
+        if: env.ACTION == 'destroy'
         run: |
-          aws cloudformation deploy \
-            --stack-name "${{ github.event.inputs.StackName }}" \
-            --template-file "${{ env.TEMPLATE_FILE }}" \
-            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
+          echo "Destroying CDK stack..."
+          npx cdk destroy $STACK_NAME --force
 
-      - name: Delete CloudFormation Stack
-        if: ${{ github.event.inputs.action == 'destroy' }}
-        run: |
-          aws cloudformation delete-stack \
-            --stack-name "${{ github.event.inputs.StackName }}"
+          echo "Confirming deletion..."
+          if aws cloudformation describe-stacks --stack-name $STACK_NAME >/dev/null 2>&1; then
+            echo "Stack still exists:"
+            aws cloudformation describe-stacks --stack-name $STACK_NAME \
+              --query "Stacks[0].StackStatus" --output text
+            exit 1
+          fi
 
-          echo "Waiting for stack deletion..."
-
-          aws cloudformation wait stack-delete-complete \
-            --stack-name "${{ env.STACK_NAME }}"
-
-          echo "CloudFormation stack deleted successfully."
+          echo "Stack $STACK_NAME deleted."
