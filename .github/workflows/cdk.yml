@@ -41,7 +41,7 @@ jobs:
       - name: Configure Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Install dependencies
@@ -55,6 +55,9 @@ jobs:
 
       - name: Verify AWS identity
         run: aws sts get-caller-identity
+
+      - name: Install latest AWS CDK
+        run: npm install -g aws-cdk@latest
 
       - name: CDK Bootstrap
         run: npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ secrets.AWS_REGION }}
