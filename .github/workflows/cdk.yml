@@ -66,9 +66,6 @@ jobs:
       - name: Verify AWS identity
         run: aws sts get-caller-identity
 
-      # - name: Install latest AWS CDK
-      #   run: npm install -g aws-cdk@latest
-
       - name: CDK Bootstrap
         run: npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ secrets.AWS_REGION }}
 
@@ -98,6 +95,9 @@ jobs:
         run: |
           echo "Destroying CDK stack..."
           npx cdk destroy $CDK_STACK_NAME --force
+
+          echo "Waiting for CloudFormation to finish deletion..."
+          aws cloudformation wait stack-delete-complete --stack-name $CDK_STACK_NAME
 
           echo "Confirming deletion..."
           if aws cloudformation describe-stacks --stack-name $CDK_STACK_NAME >/dev/null 2>&1; then

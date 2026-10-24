@@ -17,6 +17,7 @@
  */
 
 import { Construct } from 'constructs';
+import * as cdk from 'aws-cdk-lib/core'; 
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 
@@ -71,6 +72,9 @@ export class Database extends Construct {
 
         multiAz: multiAz,
 
+        deletionProtection: false,        
+        deleteAutomatedBackups: true,               
+
         masterUsername:
             '{{resolve:secretsmanager:' +
             this.secret.ref +
@@ -87,5 +91,7 @@ export class Database extends Construct {
         publiclyAccessible: false,
     });
 
+    // 4. Delete the database with no final snapshot when the stack is destroyed
+    this.dbInstance.applyRemovalPolicy(cdk.RemovalPolicy.DESTROY);
   }
 }
