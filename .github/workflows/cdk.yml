@@ -52,6 +52,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Show CDK versions
+        run: |
+          npx cdk --version
+          npm ls aws-cdk-lib
+
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
