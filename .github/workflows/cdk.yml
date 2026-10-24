@@ -15,6 +15,11 @@ on:
         options:
           - deploy
           - destroy
+      confirm:
+        description: 'Type DESTROY to confirm'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   id-token: write
@@ -56,8 +61,8 @@ jobs:
       - name: Verify AWS identity
         run: aws sts get-caller-identity
 
-      - name: Install latest AWS CDK
-        run: npm install -g aws-cdk@latest
+      # - name: Install latest AWS CDK
+      #   run: npm install -g aws-cdk@latest
 
       - name: CDK Bootstrap
         run: npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ secrets.AWS_REGION }}
@@ -72,14 +77,14 @@ jobs:
           npx cdk synth
 
           echo "Running CDK diff..."
-          npx cdk diff $STACK_NAME
+          npx cdk diff $CDK_STACK_NAME
 
           echo "Deploying CDK stack..."
-          npx cdk deploy $STACK_NAME --require-approval never
+          npx cdk deploy $CDK_STACK_NAME --require-approval never
 
           echo "Showing stack outputs..."
           aws cloudformation describe-stacks \
-            --stack-name $STACK_NAME \
+            --stack-name $CDK_STACK_NAME \
             --query "Stacks[0].{Status:StackStatus,Outputs:Outputs}" \
             --output table
 
@@ -87,14 +92,14 @@ jobs:
         if: env.ACTION == 'destroy'
         run: |
           echo "Destroying CDK stack..."
-          npx cdk destroy $STACK_NAME --force
+          npx cdk destroy $CDK_STACK_NAME --force
 
           echo "Confirming deletion..."
-          if aws cloudformation describe-stacks --stack-name $STACK_NAME >/dev/null 2>&1; then
+          if aws cloudformation describe-stacks --stack-name $CDK_STACK_NAME >/dev/null 2>&1; then
             echo "Stack still exists:"
-            aws cloudformation describe-stacks --stack-name $STACK_NAME \
+            aws cloudformation describe-stacks --stack-name $CDK_STACK_NAME \
               --query "Stacks[0].StackStatus" --output text
             exit 1
           fi
 
-          echo "Stack $STACK_NAME deleted."
+          echo "Stack $CDK_STACK_NAME deleted."
