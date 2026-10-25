@@ -13,19 +13,19 @@
  *
  *   2. Create the internet gateway, attach it to the VPC, and create the
  *      public route table with a default route to the internet gateway
- *      → createInternetGatewayAndPublicRouteTable()
+ *      --> createInternetGatewayAndPublicRouteTable()
  *
  *   3. Availability Zone a (ca-central-1a)
  *      3.1 Create public subnet A (10.20.1.0/24) and associate it with
- *          the public route table → createPublicSubnet()
+ *          the public route table --> createPublicSubnet()
  *      3.2 Create the NAT gateway in public subnet A, then private subnet A
  *          (10.20.2.0/24) with its own route table pointing to that NAT
- *          gateway → createNatGatewayAndPrivateSubnet()
+ *          gateway --> createNatGatewayAndPrivateSubnet()
  *
  *   4. Availability Zone b (ca-central-1b), same pattern as AZ a
- *      4.1 Create public subnet B (10.20.3.0/24) → createPublicSubnet()
+ *      4.1 Create public subnet B (10.20.3.0/24) --> createPublicSubnet()
  *      4.2 Create the NAT gateway in public subnet B, then private subnet B
- *          (10.20.4.0/24) → createNatGatewayAndPrivateSubnet()
+ *          (10.20.4.0/24) --> createNatGatewayAndPrivateSubnet()
  *
  * Result:
  *   - Public subnets reach the internet directly (for the ALB and NAT gateways).
@@ -226,7 +226,7 @@ export class Network extends Construct {
    *      Elastic IP (Name: <cfg.name>-nat).
    *   3. Create the private subnet in the VPC, using the CIDR block,
    *      Availability Zone and Name tag from cfg.
-   *      - mapPublicIpOnLaunch: false → instances get no public IP.
+   *      - mapPublicIpOnLaunch: false --> instances get no public IP.
    *   4. Create a private route table for this subnet (Name: <cfg.name>-rt).
    *   5. Add a default route (0.0.0.0/0) to the NAT gateway, so instances
    *      can reach the internet for outbound traffic only (updates, APIs).

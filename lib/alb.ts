@@ -1,7 +1,7 @@
 /**
  * Application Load Balancer layer (CDK L1 / Cfn resources)
  *
- *   Internet → ALB :80 (public subnets) → target group → EC2 instances :<targetGroupPort>
+ *   Internet --> ALB :80 (public subnets) --> target group --> EC2 instances :<targetGroupPort>
  *
  * Steps:
  *   1. Set the health check path (props.healthCheckPath, default /health).
@@ -15,7 +15,7 @@
  *        Auto Scaling group.
  *      - Sends HTTP traffic on props.targetGroupPort (usually 80).
  *      - Health check: HTTP GET <healthPath> every 30 s, 5 s timeout.
- *        3 successes → healthy, 3 failures → unhealthy.
+ *        3 successes --> healthy, 3 failures --> unhealthy.
  *
  *   4. Create the HTTP listener on port 80 (cfnHttpListener)
  *      - Forwards all requests to the target group.

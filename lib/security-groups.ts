@@ -2,7 +2,7 @@
  * Security groups layer (CDK L1 / Cfn resources)
  *
  * Creates 3 security groups that form a chain:
- *   Internet → ALB → EC2 instances → PostgreSQL database
+ *   Internet --> ALB --> EC2 instances --> PostgreSQL database
  *
  * Steps:
  *   1. Create the ALB security group (albSg)

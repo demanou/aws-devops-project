@@ -3,10 +3,10 @@
  *
  * Steps:
  *   1. Read settings from CDK context, with default values
- *      - asgMin          → minimum instances (default 1)
- *      - asgMax          → maximum instances (default 4)
- *      - asgDesired      → desired instances (default 2)
- *      - ec2InstanceType → instance type     (default t3.micro)
+ *      - asgMin          --> minimum instances (default 1)
+ *      - asgMax          --> maximum instances (default 4)
+ *      - asgDesired      --> desired instances (default 2)
+ *      - ec2InstanceType --> instance type     (default t3.micro)
  *      Example override: cdk deploy -c asgMin=2 -c ec2InstanceType=t3.small
  *
  *   2. Create the EC2 launch template (cfnLaunchTemplate)

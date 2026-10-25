@@ -1,8 +1,8 @@
 /**
  * Main stack — assembles the full application architecture.
  *
- *   Internet → ALB (public subnets) → EC2 Auto Scaling group (private subnets)
- *                                    → RDS PostgreSQL (private subnets)
+ *   Internet --> ALB (public subnets) --> EC2 Auto Scaling group (private subnets)
+ *                                     --> RDS PostgreSQL (private subnets)
  *
  * Steps:
  *   1. Create the network (Network)
